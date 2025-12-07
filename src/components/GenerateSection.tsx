@@ -51,6 +51,10 @@ export const GenerateSection = ({
       templateImg.src = templateUrl;
     });
 
+    // Calculate scale factor - the editor scales the image to fit within 800x600
+    const editorScale = Math.min(800 / templateImg.width, 600 / templateImg.height);
+    const scaleBack = 1 / editorScale;
+
     for (let i = 0; i < studentData.length; i++) {
       const student = studentData[i];
       
@@ -63,13 +67,17 @@ export const GenerateSection = ({
       // Draw template
       ctx.drawImage(templateImg, 0, 0);
 
-      // Draw text fields
+      // Draw text fields - scale positions and font size back to original image size
       textFields.forEach((field) => {
         const value = student[field.fieldName] || "";
-        ctx.font = `${field.fontSize}px ${field.fontFamily}`;
+        const scaledFontSize = Math.round(field.fontSize * scaleBack);
+        const scaledLeft = field.left * scaleBack;
+        const scaledTop = field.top * scaleBack;
+        
+        ctx.font = `${scaledFontSize}px ${field.fontFamily}`;
         ctx.fillStyle = field.fill;
         ctx.textBaseline = "top";
-        ctx.fillText(value, field.left, field.top);
+        ctx.fillText(value, scaledLeft, scaledTop);
       });
 
       // Convert to blob
