@@ -13,6 +13,8 @@ interface TextField {
   fontSize: number;
   fontFamily: string;
   fill: string;
+  fontWeight?: string;
+  fontStyle?: string;
 }
 
 interface GenerateSectionProps {
@@ -74,7 +76,9 @@ export const GenerateSection = ({
         const scaledLeft = field.left * scaleBack;
         const scaledTop = field.top * scaleBack;
         
-        ctx.font = `${scaledFontSize}px ${field.fontFamily}`;
+        const fontStyle = field.fontStyle === "italic" ? "italic" : "";
+        const fontWeight = field.fontWeight === "bold" ? "bold" : "";
+        ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${field.fontFamily}`.trim();
         ctx.fillStyle = field.fill;
         ctx.textBaseline = "top";
         ctx.fillText(value, scaledLeft, scaledTop);
