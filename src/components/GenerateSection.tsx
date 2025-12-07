@@ -1,0 +1,170 @@
+import { useState } from "react";
+import { Download, Loader2, CheckCircle, Sparkles } from "lucide-react";
+import { Button } from "./ui/button";
+import { Progress } from "./ui/progress";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
+
+interface TextField {
+  id: string;
+  fieldName: string;
+  left: number;
+  top: number;
+  fontSize: number;
+  fontFamily: string;
+  fill: string;
+}
+
+interface GenerateSectionProps {
+  templateUrl: string;
+  textFields: TextField[];
+  studentData: Record<string, string>[];
+  isReady: boolean;
+}
+
+export const GenerateSection = ({
+  templateUrl,
+  textFields,
+  studentData,
+  isReady,
+}: GenerateSectionProps) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [completed, setCompleted] = useState(false);
+
+  const generateCertificates = async () => {
+    if (!isReady) return;
+
+    setIsGenerating(true);
+    setProgress(0);
+    setCompleted(false);
+
+    const zip = new JSZip();
+    const total = studentData.length;
+
+    // Load template image
+    const templateImg = new Image();
+    templateImg.crossOrigin = "anonymous";
+    
+    await new Promise<void>((resolve) => {
+      templateImg.onload = () => resolve();
+      templateImg.src = templateUrl;
+    });
+
+    for (let i = 0; i < studentData.length; i++) {
+      const student = studentData[i];
+      
+      // Create canvas for this certificate
+      const canvas = document.createElement("canvas");
+      canvas.width = templateImg.width;
+      canvas.height = templateImg.height;
+      const ctx = canvas.getContext("2d")!;
+
+      // Draw template
+      ctx.drawImage(templateImg, 0, 0);
+
+      // Draw text fields
+      textFields.forEach((field) => {
+        const value = student[field.fieldName] || "";
+        ctx.font = `${field.fontSize}px ${field.fontFamily}`;
+        ctx.fillStyle = field.fill;
+        ctx.textBaseline = "top";
+        ctx.fillText(value, field.left, field.top);
+      });
+
+      // Convert to blob
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((b) => resolve(b!), "image/png");
+      });
+
+      // Add to zip with student name or index
+      const fileName = student["Name"] || student["name"] || `certificate_${i + 1}`;
+      zip.file(`${fileName.replace(/[^a-zA-Z0-9]/g, "_")}.png`, blob);
+
+      setProgress(Math.round(((i + 1) / total) * 100));
+    }
+
+    // Generate and download zip
+    const content = await zip.generateAsync({ type: "blob" });
+    saveAs(content, "certificates.zip");
+
+    setIsGenerating(false);
+    setCompleted(true);
+  };
+
+  return (
+    <div className="w-full">
+      <div className="rounded-2xl border border-border gradient-card p-8 shadow-elevated">
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4">
+            <Sparkles className="w-8 h-8 text-primary-foreground" />
+          </div>
+          <h3 className="font-display text-2xl font-bold mb-2">Generate Certificates</h3>
+          <p className="text-muted-foreground">
+            {isReady
+              ? `Ready to generate ${studentData.length} certificates`
+              : "Complete all steps above to generate certificates"}
+          </p>
+        </div>
+
+        {isGenerating ? (
+          <div className="space-y-4">
+            <Progress value={progress} className="h-3" />
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Generating certificates... {progress}%</span>
+            </div>
+          </div>
+        ) : completed ? (
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-2 text-primary mb-4">
+              <CheckCircle className="w-6 h-6" />
+              <span className="font-semibold">All certificates generated successfully!</span>
+            </div>
+            <Button onClick={generateCertificates} variant="outline" className="gap-2">
+              <Download className="w-4 h-4" />
+              Generate Again
+            </Button>
+          </div>
+        ) : (
+          <Button
+            onClick={generateCertificates}
+            disabled={!isReady}
+            variant="hero"
+            size="lg"
+            className="w-full gap-2"
+          >
+            <Download className="w-5 h-5" />
+            Generate & Download ZIP
+          </Button>
+        )}
+
+        {!isReady && (
+          <div className="mt-6 p-4 rounded-xl bg-muted/50 text-sm text-muted-foreground">
+            <p className="font-medium mb-2">Before generating, make sure you have:</p>
+            <ul className="space-y-1">
+              <li className="flex items-center gap-2">
+                <span className={templateUrl ? "text-primary" : ""}>
+                  {templateUrl ? "✓" : "○"}
+                </span>
+                Uploaded a certificate template
+              </li>
+              <li className="flex items-center gap-2">
+                <span className={textFields.length > 0 ? "text-primary" : ""}>
+                  {textFields.length > 0 ? "✓" : "○"}
+                </span>
+                Added at least one text field
+              </li>
+              <li className="flex items-center gap-2">
+                <span className={studentData.length > 0 ? "text-primary" : ""}>
+                  {studentData.length > 0 ? "✓" : "○"}
+                </span>
+                Uploaded student data
+              </li>
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
