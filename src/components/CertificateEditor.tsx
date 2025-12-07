@@ -1,8 +1,23 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Canvas as FabricCanvas, IText, FabricImage, FabricObject } from "fabric";
-import { Plus, Type, Trash2, Move } from "lucide-react";
+import { Plus, Type, Trash2, Move, Bold, Italic } from "lucide-react";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Input } from "./ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+
+const FONT_OPTIONS = [
+  { value: "Arial", label: "Arial" },
+  { value: "Times New Roman", label: "Times New Roman" },
+  { value: "Georgia", label: "Georgia" },
+  { value: "Courier New", label: "Courier New" },
+  { value: "Verdana", label: "Verdana" },
+  { value: "Trebuchet MS", label: "Trebuchet MS" },
+  { value: "Palatino Linotype", label: "Palatino" },
+  { value: "Impact", label: "Impact" },
+];
+
+const FONT_SIZES = [16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72];
 
 interface TextField {
   id: string;
@@ -12,6 +27,8 @@ interface TextField {
   fontSize: number;
   fontFamily: string;
   fill: string;
+  fontWeight?: string;
+  fontStyle?: string;
 }
 
 interface CertificateEditorProps {
@@ -102,6 +119,8 @@ export const CertificateEditor = ({
       fontSize: field.fontSize,
       fontFamily: field.fontFamily,
       fill: field.fill,
+      fontWeight: field.fontWeight || "normal",
+      fontStyle: field.fontStyle || "normal",
       editable: false,
     });
 
@@ -146,12 +165,46 @@ export const CertificateEditor = ({
       fontSize: 24,
       fontFamily: "Arial",
       fill: "#1a1a1a",
+      fontWeight: "normal",
+      fontStyle: "normal",
     };
 
     const updatedFields = [...textFields, newField];
     onTextFieldsChange(updatedFields);
     addTextToCanvas(newField);
     setSelectedField("");
+  };
+
+  const updateFieldStyle = (fieldId: string, updates: Partial<TextField>) => {
+    if (!fabricCanvasRef.current) return;
+
+    const canvas = fabricCanvasRef.current;
+    const objects = canvas.getObjects() as FabricObjectWithData[];
+    const textObj = objects.find((obj) => obj.data?.fieldId === fieldId) as IText | undefined;
+
+    if (textObj) {
+      if (updates.fontFamily) textObj.set("fontFamily", updates.fontFamily);
+      if (updates.fontSize) textObj.set("fontSize", updates.fontSize);
+      if (updates.fill) textObj.set("fill", updates.fill);
+      if (updates.fontWeight) textObj.set("fontWeight", updates.fontWeight);
+      if (updates.fontStyle) textObj.set("fontStyle", updates.fontStyle);
+      canvas.renderAll();
+    }
+
+    const updatedFields = textFields.map((f) =>
+      f.id === fieldId ? { ...f, ...updates } : f
+    );
+    onTextFieldsChange(updatedFields);
+  };
+
+  const toggleBold = (field: TextField) => {
+    const newWeight = field.fontWeight === "bold" ? "normal" : "bold";
+    updateFieldStyle(field.id, { fontWeight: newWeight });
+  };
+
+  const toggleItalic = (field: TextField) => {
+    const newStyle = field.fontStyle === "italic" ? "normal" : "italic";
+    updateFieldStyle(field.id, { fontStyle: newStyle });
   };
 
   const handleRemoveSelected = () => {
@@ -226,17 +279,107 @@ export const CertificateEditor = ({
         <canvas ref={canvasRef} />
       </div>
 
-      {/* Field list */}
+      {/* Field styling list */}
       {textFields.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {textFields.map((field) => (
-            <div
-              key={field.id}
-              className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium"
-            >
-              {field.fieldName}
-            </div>
-          ))}
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-muted-foreground">Style your fields:</p>
+          <div className="grid gap-3">
+            {textFields.map((field) => (
+              <div
+                key={field.id}
+                className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border"
+              >
+                <span className="font-medium text-sm min-w-[80px]">{field.fieldName}</span>
+                
+                {/* Font Family */}
+                <Select
+                  value={field.fontFamily}
+                  onValueChange={(value) => updateFieldStyle(field.id, { fontFamily: value })}
+                >
+                  <SelectTrigger className="w-36 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FONT_OPTIONS.map((font) => (
+                      <SelectItem key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                        {font.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Font Size */}
+                <Select
+                  value={String(field.fontSize)}
+                  onValueChange={(value) => updateFieldStyle(field.id, { fontSize: Number(value) })}
+                >
+                  <SelectTrigger className="w-20 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FONT_SIZES.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}px
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Bold */}
+                <Button
+                  variant={field.fontWeight === "bold" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => toggleBold(field)}
+                >
+                  <Bold className="w-4 h-4" />
+                </Button>
+
+                {/* Italic */}
+                <Button
+                  variant={field.fontStyle === "italic" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => toggleItalic(field)}
+                >
+                  <Italic className="w-4 h-4" />
+                </Button>
+
+                {/* Color Picker */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                      <div
+                        className="w-4 h-4 rounded-full border border-border"
+                        style={{ backgroundColor: field.fill }}
+                      />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-3">
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium">Pick a color</p>
+                      <div className="flex gap-2 flex-wrap max-w-[160px]">
+                        {["#1a1a1a", "#ffffff", "#dc2626", "#16a34a", "#2563eb", "#9333ea", "#ca8a04", "#0891b2"].map((color) => (
+                          <button
+                            key={color}
+                            className="w-6 h-6 rounded-full border-2 border-border hover:scale-110 transition-transform"
+                            style={{ backgroundColor: color }}
+                            onClick={() => updateFieldStyle(field.id, { fill: color })}
+                          />
+                        ))}
+                      </div>
+                      <Input
+                        type="color"
+                        value={field.fill}
+                        onChange={(e) => updateFieldStyle(field.id, { fill: e.target.value })}
+                        className="h-8 w-full cursor-pointer"
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
