@@ -4,22 +4,12 @@ import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
-
-interface TextField {
-  id: string;
-  fieldName: string;
-  left: number;
-  top: number;
-  fontSize: number;
-  fontFamily: string;
-  fill: string;
-  fontWeight?: string;
-  fontStyle?: string;
-}
+import { TextField, ImageElement } from "@/types/certificate";
 
 interface GenerateSectionProps {
   templateUrl: string;
   textFields: TextField[];
+  imageElements: ImageElement[];
   studentData: Record<string, string>[];
   isReady: boolean;
 }
@@ -27,12 +17,23 @@ interface GenerateSectionProps {
 export const GenerateSection = ({
   templateUrl,
   textFields,
+  imageElements,
   studentData,
   isReady,
 }: GenerateSectionProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [completed, setCompleted] = useState(false);
+
+  const loadImage = (src: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  };
 
   const generateCertificates = async () => {
     if (!isReady) return;
@@ -45,13 +46,17 @@ export const GenerateSection = ({
     const total = studentData.length;
 
     // Load template image
-    const templateImg = new Image();
-    templateImg.crossOrigin = "anonymous";
-    
-    await new Promise<void>((resolve) => {
-      templateImg.onload = () => resolve();
-      templateImg.src = templateUrl;
-    });
+    const templateImg = await loadImage(templateUrl);
+
+    // Preload all stickers/images
+    const imageCache: Record<string, HTMLImageElement> = {};
+    for (const element of imageElements) {
+      try {
+        imageCache[element.id] = await loadImage(element.src);
+      } catch (e) {
+        console.error('Failed to load image:', element.src);
+      }
+    }
 
     // Calculate scale factor - the editor scales the image to fit within 800x600
     const editorScale = Math.min(800 / templateImg.width, 600 / templateImg.height);
@@ -68,6 +73,19 @@ export const GenerateSection = ({
 
       // Draw template
       ctx.drawImage(templateImg, 0, 0);
+
+      // Draw images/stickers - scale positions and size back to original image size
+      for (const element of imageElements) {
+        const img = imageCache[element.id];
+        if (img) {
+          const scaledLeft = element.left * scaleBack;
+          const scaledTop = element.top * scaleBack;
+          const scaledWidth = img.width * element.scaleX * scaleBack;
+          const scaledHeight = img.height * element.scaleY * scaleBack;
+          
+          ctx.drawImage(img, scaledLeft, scaledTop, scaledWidth, scaledHeight);
+        }
+      }
 
       // Draw text fields - scale positions and font size back to original image size
       textFields.forEach((field) => {

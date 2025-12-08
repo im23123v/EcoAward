@@ -5,16 +5,7 @@ import { TemplateUploader } from "./TemplateUploader";
 import { ExcelUploader } from "./ExcelUploader";
 import { CertificateEditor } from "./CertificateEditor";
 import { GenerateSection } from "./GenerateSection";
-
-interface TextField {
-  id: string;
-  fieldName: string;
-  left: number;
-  top: number;
-  fontSize: number;
-  fontFamily: string;
-  fill: string;
-}
+import { TextField, ImageElement } from "@/types/certificate";
 
 interface CertificateGeneratorProps {
   onBack: () => void;
@@ -26,6 +17,7 @@ export const CertificateGenerator = ({ onBack }: CertificateGeneratorProps) => {
   const [studentData, setStudentData] = useState<Record<string, string>[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [textFields, setTextFields] = useState<TextField[]>([]);
+  const [imageElements, setImageElements] = useState<ImageElement[]>([]);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   const handleTemplateUpload = useCallback((file: File) => {
@@ -33,6 +25,7 @@ export const CertificateGenerator = ({ onBack }: CertificateGeneratorProps) => {
     const url = URL.createObjectURL(file);
     setTemplateUrl(url);
     setTextFields([]);
+    setImageElements([]);
   }, []);
 
   const handleDataUpload = useCallback((data: Record<string, string>[], headerList: string[]) => {
@@ -81,6 +74,7 @@ export const CertificateGenerator = ({ onBack }: CertificateGeneratorProps) => {
             <GenerateSection
               templateUrl={templateUrl}
               textFields={textFields}
+              imageElements={imageElements}
               studentData={studentData}
               isReady={!!isReady}
             />
@@ -93,7 +87,9 @@ export const CertificateGenerator = ({ onBack }: CertificateGeneratorProps) => {
                 templateUrl={templateUrl}
                 availableFields={headers}
                 textFields={textFields}
+                imageElements={imageElements}
                 onTextFieldsChange={setTextFields}
+                onImageElementsChange={setImageElements}
               />
             ) : (
               <div className="h-96 rounded-2xl border-2 border-dashed border-border flex items-center justify-center">
