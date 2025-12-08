@@ -41,16 +41,23 @@ export const CertificateGenerator = ({ onBack }: CertificateGeneratorProps) => {
   const isReady = templateUrl && textFields.length > 0 && studentData.length > 0;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Background decoration */}
+      <div className="fixed inset-0 gradient-mesh opacity-30 pointer-events-none" />
+      <div className="fixed top-0 right-0 w-96 h-96 orb orb-primary opacity-20 pointer-events-none" />
+      <div className="fixed bottom-0 left-0 w-96 h-96 orb orb-accent opacity-15 pointer-events-none" />
+      
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
-        <div className="container mx-auto px-6 h-16 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="font-display text-xl font-bold">Certificate Generator</h1>
-            <p className="text-sm text-muted-foreground">Create certificates in bulk</p>
+      <header className="sticky top-0 z-50 p-4">
+        <div className="glass-strong rounded-2xl shadow-elevated">
+          <div className="container mx-auto px-6 h-16 flex items-center gap-4">
+            <Button variant="glass" size="icon" onClick={onBack} className="rounded-xl">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="font-display text-xl font-bold">Certificate Generator</h1>
+              <p className="text-sm text-muted-foreground">Create certificates in bulk</p>
+            </div>
           </div>
         </div>
       </header>
