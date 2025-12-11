@@ -12,6 +12,7 @@ interface GenerateSectionProps {
   imageElements: ImageElement[];
   studentData: Record<string, string>[];
   isReady: boolean;
+  onGenerate?: (count: number) => void;
 }
 
 export const GenerateSection = ({
@@ -20,6 +21,7 @@ export const GenerateSection = ({
   imageElements,
   studentData,
   isReady,
+  onGenerate,
 }: GenerateSectionProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -120,6 +122,7 @@ export const GenerateSection = ({
 
     setIsGenerating(false);
     setCompleted(true);
+    onGenerate?.(studentData.length);
   };
 
   return (
