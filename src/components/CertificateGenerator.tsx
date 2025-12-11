@@ -9,9 +9,10 @@ import { TextField, ImageElement } from "@/types/certificate";
 
 interface CertificateGeneratorProps {
   onBack: () => void;
+  onGenerate?: (count: number) => void;
 }
 
-export const CertificateGenerator = ({ onBack }: CertificateGeneratorProps) => {
+export const CertificateGenerator = ({ onBack, onGenerate }: CertificateGeneratorProps) => {
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [templateUrl, setTemplateUrl] = useState<string>("");
   const [studentData, setStudentData] = useState<Record<string, string>[]>([]);
@@ -77,6 +78,7 @@ export const CertificateGenerator = ({ onBack }: CertificateGeneratorProps) => {
               imageElements={imageElements}
               studentData={studentData}
               isReady={!!isReady}
+              onGenerate={onGenerate}
             />
           </div>
 
