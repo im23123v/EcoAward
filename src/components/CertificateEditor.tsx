@@ -1,13 +1,19 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Canvas as FabricCanvas, IText, FabricImage, FabricObject } from "fabric";
-import { Plus, Type, Trash2, Move, Bold, Italic, Image, Sticker, Upload, RotateCw, FlipHorizontal, FlipVertical, Copy, Layers } from "lucide-react";
+import { Canvas as FabricCanvas, IText, FabricImage, FabricObject, Shadow } from "fabric";
+import { 
+  Plus, Type, Trash2, Move, Bold, Italic, Underline, Image, Sticker, Upload, 
+  RotateCw, FlipHorizontal, FlipVertical, Copy, Layers, AlignLeft, AlignCenter, 
+  AlignRight, Sun, Palette, Eye 
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Input } from "./ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Slider } from "./ui/slider";
-import { TextField, ImageElement, CertificateElement, STICKERS, FONT_OPTIONS, FONT_SIZES } from "@/types/certificate";
+import { Label } from "./ui/label";
+import { Switch } from "./ui/switch";
+import { TextField, ImageElement, STICKERS, FONT_OPTIONS, FONT_SIZES, COLOR_PRESETS } from "@/types/certificate";
 
 interface CertificateEditorProps {
   templateUrl: string;
@@ -37,6 +43,7 @@ export const CertificateEditor = ({
   const [selectedField, setSelectedField] = useState<string>("");
   const [canvasReady, setCanvasReady] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("text");
 
   // Initialize canvas
   useEffect(() => {
@@ -123,8 +130,27 @@ export const CertificateEditor = ({
       fill: field.fill,
       fontWeight: field.fontWeight || "normal",
       fontStyle: field.fontStyle || "normal",
+      underline: field.underline || false,
+      textAlign: field.textAlign || "left",
+      opacity: field.opacity ?? 1,
       editable: false,
     });
+
+    if (field.shadow) {
+      text.set("shadow", new Shadow({
+        color: "rgba(0,0,0,0.5)",
+        blur: 4,
+        offsetX: 2,
+        offsetY: 2,
+      }));
+    }
+
+    if (field.strokeWidth && field.strokeColor) {
+      text.set({
+        stroke: field.strokeColor,
+        strokeWidth: field.strokeWidth,
+      });
+    }
 
     (text as FabricObjectWithData).data = { id: field.id, type: 'text' };
 
@@ -160,6 +186,8 @@ export const CertificateEditor = ({
         top: element.top,
         scaleX: element.scaleX,
         scaleY: element.scaleY,
+        opacity: element.opacity ?? 1,
+        angle: element.rotation || 0,
       });
 
       (img as FabricObjectWithData).data = { id: element.id, type: 'image' };
@@ -180,6 +208,15 @@ export const CertificateEditor = ({
         onImageElementsChange(updated);
       });
 
+      img.on("rotating", () => {
+        const updated = imageElements.map((e) =>
+          e.id === element.id
+            ? { ...e, rotation: img.angle || 0 }
+            : e
+        );
+        onImageElementsChange(updated);
+      });
+
       img.on("modified", () => {
         const updated = imageElements.map((e) =>
           e.id === element.id
@@ -189,6 +226,7 @@ export const CertificateEditor = ({
                 top: img.top || 0,
                 scaleX: img.scaleX || 1,
                 scaleY: img.scaleY || 1,
+                rotation: img.angle || 0,
               }
             : e
         );
@@ -216,6 +254,10 @@ export const CertificateEditor = ({
       fill: "#1a1a1a",
       fontWeight: "normal",
       fontStyle: "normal",
+      textAlign: "left",
+      underline: false,
+      opacity: 1,
+      shadow: false,
     };
 
     const updatedFields = [...textFields, newField];
@@ -238,6 +280,7 @@ export const CertificateEditor = ({
       height: 80,
       scaleX: 1,
       scaleY: 1,
+      opacity: 1,
     };
 
     const updated = [...imageElements, newElement];
@@ -264,6 +307,7 @@ export const CertificateEditor = ({
         height: 100,
         scaleX: 0.5,
         scaleY: 0.5,
+        opacity: 1,
       };
 
       const updated = [...imageElements, newElement];
@@ -287,6 +331,28 @@ export const CertificateEditor = ({
       if (updates.fill) textObj.set("fill", updates.fill);
       if (updates.fontWeight) textObj.set("fontWeight", updates.fontWeight);
       if (updates.fontStyle) textObj.set("fontStyle", updates.fontStyle);
+      if (updates.textAlign) textObj.set("textAlign", updates.textAlign);
+      if (updates.underline !== undefined) textObj.set("underline", updates.underline);
+      if (updates.opacity !== undefined) textObj.set("opacity", updates.opacity);
+      if (updates.shadow !== undefined) {
+        if (updates.shadow) {
+          textObj.set("shadow", new Shadow({
+            color: "rgba(0,0,0,0.5)",
+            blur: 4,
+            offsetX: 2,
+            offsetY: 2,
+          }));
+        } else {
+          textObj.set("shadow", null);
+        }
+      }
+      if (updates.strokeColor !== undefined || updates.strokeWidth !== undefined) {
+        const field = textFields.find(f => f.id === fieldId);
+        textObj.set({
+          stroke: updates.strokeColor ?? field?.strokeColor ?? "",
+          strokeWidth: updates.strokeWidth ?? field?.strokeWidth ?? 0,
+        });
+      }
       canvas.renderAll();
     }
 
@@ -304,6 +370,14 @@ export const CertificateEditor = ({
   const toggleItalic = (field: TextField) => {
     const newStyle = field.fontStyle === "italic" ? "normal" : "italic";
     updateFieldStyle(field.id, { fontStyle: newStyle });
+  };
+
+  const toggleUnderline = (field: TextField) => {
+    updateFieldStyle(field.id, { underline: !field.underline });
+  };
+
+  const toggleShadow = (field: TextField) => {
+    updateFieldStyle(field.id, { shadow: !field.shadow });
   };
 
   const handleRemoveSelected = () => {
@@ -350,6 +424,19 @@ export const CertificateEditor = ({
           onImageElementsChange(updated);
           addImageToCanvas(newElement);
         }
+      } else if (type === 'text') {
+        const original = textFields.find((f) => f.id === id);
+        if (original) {
+          const newField: TextField = {
+            ...original,
+            id: `field-${Date.now()}`,
+            left: original.left + 20,
+            top: original.top + 20,
+          };
+          const updated = [...textFields, newField];
+          onTextFieldsChange(updated);
+          addTextToCanvas(newField);
+        }
       }
     }
   };
@@ -359,7 +446,7 @@ export const CertificateEditor = ({
     const canvas = fabricCanvasRef.current;
     const activeObject = canvas.getActiveObject();
     if (activeObject) {
-      activeObject.rotate((activeObject.angle || 0) + 45);
+      activeObject.rotate((activeObject.angle || 0) + 15);
       canvas.renderAll();
     }
   };
@@ -422,10 +509,29 @@ export const CertificateEditor = ({
     onImageElementsChange(updated);
   };
 
+  const updateImageOpacity = (elementId: string, opacity: number) => {
+    if (!fabricCanvasRef.current) return;
+
+    const canvas = fabricCanvasRef.current;
+    const objects = canvas.getObjects() as FabricObjectWithData[];
+    const imgObj = objects.find((obj) => obj.data?.id === elementId);
+
+    if (imgObj) {
+      imgObj.set({ opacity });
+      canvas.renderAll();
+    }
+
+    const updated = imageElements.map((e) =>
+      e.id === elementId ? { ...e, opacity } : e
+    );
+    onImageElementsChange(updated);
+  };
+
   const usedFields = textFields.map((f) => f.fieldName);
   const availableToAdd = availableFields.filter((f) => !usedFields.includes(f));
 
   const selectedImage = imageElements.find((e) => e.id === selectedElementId);
+  const selectedTextField = textFields.find((f) => f.id === selectedElementId);
 
   return (
     <div className="w-full space-y-4">
@@ -434,17 +540,17 @@ export const CertificateEditor = ({
           <Type className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h3 className="font-display text-lg font-semibold">Certificate Editor</h3>
-          <p className="text-sm text-muted-foreground">Add text fields, stickers, and images</p>
+          <h3 className="font-display text-lg font-semibold">Advanced Certificate Editor</h3>
+          <p className="text-sm text-muted-foreground">Design with text, stickers, images & effects</p>
         </div>
       </div>
 
       {/* Main Toolbar with Tabs */}
-      <Tabs defaultValue="text" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-4">
           <TabsTrigger value="text" className="gap-2">
             <Type className="w-4 h-4" />
-            Text Fields
+            Text
           </TabsTrigger>
           <TabsTrigger value="stickers" className="gap-2">
             <Sticker className="w-4 h-4" />
@@ -453,6 +559,10 @@ export const CertificateEditor = ({
           <TabsTrigger value="images" className="gap-2">
             <Image className="w-4 h-4" />
             Images
+          </TabsTrigger>
+          <TabsTrigger value="effects" className="gap-2">
+            <Sun className="w-4 h-4" />
+            Effects
           </TabsTrigger>
         </TabsList>
 
@@ -514,6 +624,72 @@ export const CertificateEditor = ({
             </p>
           </div>
         </TabsContent>
+
+        <TabsContent value="effects" className="space-y-3">
+          <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-4">
+            {selectedTextField ? (
+              <>
+                <p className="text-sm font-medium">Text Effects for: {selectedTextField.fieldName}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Opacity</Label>
+                    <Slider
+                      value={[selectedTextField.opacity ?? 1]}
+                      onValueChange={([val]) => updateFieldStyle(selectedTextField.id, { opacity: val })}
+                      min={0.1}
+                      max={1}
+                      step={0.1}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Stroke Width</Label>
+                    <Slider
+                      value={[selectedTextField.strokeWidth ?? 0]}
+                      onValueChange={([val]) => updateFieldStyle(selectedTextField.id, { strokeWidth: val })}
+                      min={0}
+                      max={5}
+                      step={0.5}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={selectedTextField.shadow ?? false}
+                      onCheckedChange={(checked) => updateFieldStyle(selectedTextField.id, { shadow: checked })}
+                    />
+                    <Label className="text-xs">Drop Shadow</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Stroke Color:</Label>
+                    <input
+                      type="color"
+                      value={selectedTextField.strokeColor || "#000000"}
+                      onChange={(e) => updateFieldStyle(selectedTextField.id, { strokeColor: e.target.value })}
+                      className="w-8 h-8 rounded cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : selectedImage ? (
+              <>
+                <p className="text-sm font-medium">Image Effects</p>
+                <div className="space-y-2">
+                  <Label className="text-xs">Opacity</Label>
+                  <Slider
+                    value={[selectedImage.opacity ?? 1]}
+                    onValueChange={([val]) => updateImageOpacity(selectedImage.id, val)}
+                    min={0.1}
+                    max={1}
+                    step={0.1}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Select an element to apply effects</p>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Transform Tools */}
@@ -523,26 +699,24 @@ export const CertificateEditor = ({
           Remove
         </Button>
         <div className="h-6 w-px bg-border" />
-        <Button onClick={handleRotate} variant="outline" size="sm" className="gap-2" title="Rotate 45°">
+        <Button onClick={handleRotate} variant="outline" size="sm" title="Rotate 15°">
           <RotateCw className="w-4 h-4" />
         </Button>
-        <Button onClick={handleFlipX} variant="outline" size="sm" className="gap-2" title="Flip Horizontal">
+        <Button onClick={handleFlipX} variant="outline" size="sm" title="Flip Horizontal">
           <FlipHorizontal className="w-4 h-4" />
         </Button>
-        <Button onClick={handleFlipY} variant="outline" size="sm" className="gap-2" title="Flip Vertical">
+        <Button onClick={handleFlipY} variant="outline" size="sm" title="Flip Vertical">
           <FlipVertical className="w-4 h-4" />
         </Button>
-        <Button onClick={handleDuplicate} variant="outline" size="sm" className="gap-2" title="Duplicate">
+        <Button onClick={handleDuplicate} variant="outline" size="sm" title="Duplicate">
           <Copy className="w-4 h-4" />
         </Button>
         <div className="h-6 w-px bg-border" />
-        <Button onClick={handleBringForward} variant="outline" size="sm" className="gap-2" title="Bring Forward">
-          <Layers className="w-4 h-4" />
-          ↑
+        <Button onClick={handleBringForward} variant="outline" size="sm" title="Bring Forward">
+          <Layers className="w-4 h-4" />↑
         </Button>
-        <Button onClick={handleSendBackward} variant="outline" size="sm" className="gap-2" title="Send Backward">
-          <Layers className="w-4 h-4" />
-          ↓
+        <Button onClick={handleSendBackward} variant="outline" size="sm" title="Send Backward">
+          <Layers className="w-4 h-4" />↓
         </Button>
         <div className="flex items-center gap-2 ml-auto text-sm text-muted-foreground">
           <Move className="w-4 h-4" />
@@ -552,7 +726,7 @@ export const CertificateEditor = ({
 
       {/* Image Scale Control */}
       {selectedImage && (
-        <div className="p-4 rounded-xl bg-accent/20 border border-accent/30">
+        <div className="p-4 rounded-xl bg-accent/20 border border-accent/30 space-y-3">
           <div className="flex items-center gap-4">
             <span className="text-sm font-medium">Size:</span>
             <Slider
@@ -586,7 +760,11 @@ export const CertificateEditor = ({
             {textFields.map((field) => (
               <div
                 key={field.id}
-                className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border"
+                className={`flex flex-wrap items-center gap-2 p-3 rounded-xl border transition-all ${
+                  selectedElementId === field.id 
+                    ? "bg-primary/10 border-primary" 
+                    : "bg-secondary/50 border-border"
+                }`}
               >
                 <span className="font-medium text-sm min-w-[80px]">{field.fieldName}</span>
                 
@@ -594,7 +772,7 @@ export const CertificateEditor = ({
                   value={field.fontFamily}
                   onValueChange={(value) => updateFieldStyle(field.id, { fontFamily: value })}
                 >
-                  <SelectTrigger className="w-36 h-8 text-xs">
+                  <SelectTrigger className="w-32 h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -610,35 +788,83 @@ export const CertificateEditor = ({
                   value={String(field.fontSize)}
                   onValueChange={(value) => updateFieldStyle(field.id, { fontSize: Number(value) })}
                 >
-                  <SelectTrigger className="w-20 h-8 text-xs">
+                  <SelectTrigger className="w-16 h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {FONT_SIZES.map((size) => (
                       <SelectItem key={size} value={String(size)}>
-                        {size}px
+                        {size}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Button
-                  variant={field.fontWeight === "bold" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => toggleBold(field)}
-                >
-                  <Bold className="w-4 h-4" />
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant={field.fontWeight === "bold" ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => toggleBold(field)}
+                  >
+                    <Bold className="w-4 h-4" />
+                  </Button>
 
-                <Button
-                  variant={field.fontStyle === "italic" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => toggleItalic(field)}
-                >
-                  <Italic className="w-4 h-4" />
-                </Button>
+                  <Button
+                    variant={field.fontStyle === "italic" ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => toggleItalic(field)}
+                  >
+                    <Italic className="w-4 h-4" />
+                  </Button>
+
+                  <Button
+                    variant={field.underline ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => toggleUnderline(field)}
+                  >
+                    <Underline className="w-4 h-4" />
+                  </Button>
+
+                  <Button
+                    variant={field.shadow ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => toggleShadow(field)}
+                    title="Toggle Shadow"
+                  >
+                    <Sun className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <div className="flex gap-1">
+                  <Button
+                    variant={field.textAlign === "left" ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => updateFieldStyle(field.id, { textAlign: "left" })}
+                  >
+                    <AlignLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={field.textAlign === "center" ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => updateFieldStyle(field.id, { textAlign: "center" })}
+                  >
+                    <AlignCenter className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={field.textAlign === "right" ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => updateFieldStyle(field.id, { textAlign: "right" })}
+                  >
+                    <AlignRight className="w-4 h-4" />
+                  </Button>
+                </div>
 
                 <Popover>
                   <PopoverTrigger asChild>
@@ -652,8 +878,8 @@ export const CertificateEditor = ({
                   <PopoverContent className="w-auto p-3">
                     <div className="space-y-2">
                       <p className="text-xs font-medium">Pick a color</p>
-                      <div className="flex gap-2 flex-wrap max-w-[160px]">
-                        {["#1a1a1a", "#ffffff", "#dc2626", "#16a34a", "#2563eb", "#9333ea", "#ca8a04", "#0891b2"].map((color) => (
+                      <div className="flex gap-1.5 flex-wrap max-w-[180px]">
+                        {COLOR_PRESETS.map((color) => (
                           <button
                             key={color}
                             className="w-6 h-6 rounded-full border-2 border-border hover:scale-110 transition-transform"
@@ -679,8 +905,10 @@ export const CertificateEditor = ({
 
       {/* Image elements list */}
       {imageElements.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-muted-foreground">Added images & stickers: {imageElements.length}</p>
+        <div className="p-3 rounded-xl bg-secondary/30 border border-border">
+          <p className="text-sm font-medium text-muted-foreground">
+            Added images & stickers: {imageElements.length}
+          </p>
         </div>
       )}
     </div>
