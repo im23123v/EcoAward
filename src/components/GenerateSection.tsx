@@ -1,24 +1,20 @@
 import { useState } from "react";
-import { Download, Loader2, CheckCircle, Sparkles } from "lucide-react";
+import { Download, Loader2, CheckCircle, Sparkles, FileStack } from "lucide-react";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
-import { TextField, ImageElement } from "@/types/certificate";
+import { CertificateTemplate } from "@/types/certificate";
 
 interface GenerateSectionProps {
-  templateUrl: string;
-  textFields: TextField[];
-  imageElements: ImageElement[];
+  templates: CertificateTemplate[];
   studentData: Record<string, string>[];
   isReady: boolean;
   onGenerate?: (count: number) => void;
 }
 
 export const GenerateSection = ({
-  templateUrl,
-  textFields,
-  imageElements,
+  templates,
   studentData,
   isReady,
   onGenerate,
@@ -38,82 +34,135 @@ export const GenerateSection = ({
   };
 
   const generateCertificates = async () => {
-    if (!isReady) return;
+    if (!isReady || templates.length === 0) return;
 
     setIsGenerating(true);
     setProgress(0);
     setCompleted(false);
 
     const zip = new JSZip();
-    const total = studentData.length;
+    const totalOperations = templates.length * studentData.length;
+    let completedOperations = 0;
 
-    // Load template image
-    const templateImg = await loadImage(templateUrl);
+    for (const template of templates) {
+      if (template.textFields.length === 0) continue;
 
-    // Preload all stickers/images
-    const imageCache: Record<string, HTMLImageElement> = {};
-    for (const element of imageElements) {
-      try {
-        imageCache[element.id] = await loadImage(element.src);
-      } catch (e) {
-        console.error('Failed to load image:', element.src);
-      }
-    }
+      // Load template image
+      const templateImg = await loadImage(template.url);
 
-    // Calculate scale factor - the editor scales the image to fit within 800x600
-    const editorScale = Math.min(800 / templateImg.width, 600 / templateImg.height);
-    const scaleBack = 1 / editorScale;
-
-    for (let i = 0; i < studentData.length; i++) {
-      const student = studentData[i];
-      
-      // Create canvas for this certificate
-      const canvas = document.createElement("canvas");
-      canvas.width = templateImg.width;
-      canvas.height = templateImg.height;
-      const ctx = canvas.getContext("2d")!;
-
-      // Draw template
-      ctx.drawImage(templateImg, 0, 0);
-
-      // Draw images/stickers - scale positions and size back to original image size
-      for (const element of imageElements) {
-        const img = imageCache[element.id];
-        if (img) {
-          const scaledLeft = element.left * scaleBack;
-          const scaledTop = element.top * scaleBack;
-          const scaledWidth = img.width * element.scaleX * scaleBack;
-          const scaledHeight = img.height * element.scaleY * scaleBack;
-          
-          ctx.drawImage(img, scaledLeft, scaledTop, scaledWidth, scaledHeight);
+      // Preload all stickers/images for this template
+      const imageCache: Record<string, HTMLImageElement> = {};
+      for (const element of template.imageElements) {
+        try {
+          imageCache[element.id] = await loadImage(element.src);
+        } catch (e) {
+          console.error('Failed to load image:', element.src);
         }
       }
 
-      // Draw text fields - scale positions and font size back to original image size
-      textFields.forEach((field) => {
-        const value = student[field.fieldName] || "";
-        const scaledFontSize = Math.round(field.fontSize * scaleBack);
-        const scaledLeft = field.left * scaleBack;
-        const scaledTop = field.top * scaleBack;
+      // Calculate scale factor
+      const editorScale = Math.min(800 / templateImg.width, 600 / templateImg.height);
+      const scaleBack = 1 / editorScale;
+
+      // Create folder for this template if multiple templates
+      const folderName = templates.length > 1 ? `${template.name}/` : "";
+
+      for (let i = 0; i < studentData.length; i++) {
+        const student = studentData[i];
         
-        const fontStyle = field.fontStyle === "italic" ? "italic" : "";
-        const fontWeight = field.fontWeight === "bold" ? "bold" : "";
-        ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${field.fontFamily}`.trim();
-        ctx.fillStyle = field.fill;
-        ctx.textBaseline = "top";
-        ctx.fillText(value, scaledLeft, scaledTop);
-      });
+        // Create canvas for this certificate
+        const canvas = document.createElement("canvas");
+        canvas.width = templateImg.width;
+        canvas.height = templateImg.height;
+        const ctx = canvas.getContext("2d")!;
 
-      // Convert to blob
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((b) => resolve(b!), "image/png");
-      });
+        // Draw template
+        ctx.drawImage(templateImg, 0, 0);
 
-      // Add to zip with student name or index
-      const fileName = student["Name"] || student["name"] || `certificate_${i + 1}`;
-      zip.file(`${fileName.replace(/[^a-zA-Z0-9]/g, "_")}.png`, blob);
+        // Draw images/stickers
+        for (const element of template.imageElements) {
+          const img = imageCache[element.id];
+          if (img) {
+            ctx.save();
+            ctx.globalAlpha = element.opacity ?? 1;
+            
+            const scaledLeft = element.left * scaleBack;
+            const scaledTop = element.top * scaleBack;
+            const scaledWidth = img.width * element.scaleX * scaleBack;
+            const scaledHeight = img.height * element.scaleY * scaleBack;
+            
+            if (element.rotation) {
+              const centerX = scaledLeft + scaledWidth / 2;
+              const centerY = scaledTop + scaledHeight / 2;
+              ctx.translate(centerX, centerY);
+              ctx.rotate((element.rotation * Math.PI) / 180);
+              ctx.drawImage(img, -scaledWidth / 2, -scaledHeight / 2, scaledWidth, scaledHeight);
+            } else {
+              ctx.drawImage(img, scaledLeft, scaledTop, scaledWidth, scaledHeight);
+            }
+            ctx.restore();
+          }
+        }
 
-      setProgress(Math.round(((i + 1) / total) * 100));
+        // Draw text fields
+        template.textFields.forEach((field) => {
+          const value = student[field.fieldName] || "";
+          const scaledFontSize = Math.round(field.fontSize * scaleBack);
+          const scaledLeft = field.left * scaleBack;
+          const scaledTop = field.top * scaleBack;
+          
+          ctx.save();
+          ctx.globalAlpha = field.opacity ?? 1;
+          
+          const fontStyle = field.fontStyle === "italic" ? "italic" : "";
+          const fontWeight = field.fontWeight === "bold" ? "bold" : "";
+          ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px ${field.fontFamily}`.trim();
+          ctx.fillStyle = field.fill;
+          ctx.textBaseline = "top";
+          
+          // Apply shadow if enabled
+          if (field.shadow) {
+            ctx.shadowColor = "rgba(0,0,0,0.5)";
+            ctx.shadowBlur = 4 * scaleBack;
+            ctx.shadowOffsetX = 2 * scaleBack;
+            ctx.shadowOffsetY = 2 * scaleBack;
+          }
+
+          // Apply stroke if enabled
+          if (field.strokeWidth && field.strokeWidth > 0 && field.strokeColor) {
+            ctx.strokeStyle = field.strokeColor;
+            ctx.lineWidth = field.strokeWidth * scaleBack;
+            ctx.strokeText(value, scaledLeft, scaledTop);
+          }
+
+          ctx.fillText(value, scaledLeft, scaledTop);
+
+          // Draw underline if enabled
+          if (field.underline) {
+            const textWidth = ctx.measureText(value).width;
+            ctx.beginPath();
+            ctx.moveTo(scaledLeft, scaledTop + scaledFontSize + 2);
+            ctx.lineTo(scaledLeft + textWidth, scaledTop + scaledFontSize + 2);
+            ctx.strokeStyle = field.fill;
+            ctx.lineWidth = Math.max(1, scaledFontSize / 15);
+            ctx.stroke();
+          }
+
+          ctx.restore();
+        });
+
+        // Convert to blob
+        const blob = await new Promise<Blob>((resolve) => {
+          canvas.toBlob((b) => resolve(b!), "image/png");
+        });
+
+        // Add to zip with student name or index
+        const fileName = student["Name"] || student["name"] || `certificate_${i + 1}`;
+        zip.file(`${folderName}${fileName.replace(/[^a-zA-Z0-9]/g, "_")}.png`, blob);
+
+        completedOperations++;
+        setProgress(Math.round((completedOperations / totalOperations) * 100));
+      }
     }
 
     // Generate and download zip
@@ -122,8 +171,13 @@ export const GenerateSection = ({
 
     setIsGenerating(false);
     setCompleted(true);
-    onGenerate?.(studentData.length);
+    
+    const totalGenerated = templates.filter(t => t.textFields.length > 0).length * studentData.length;
+    onGenerate?.(totalGenerated);
   };
+
+  const templatesWithFields = templates.filter(t => t.textFields.length > 0);
+  const totalCertificates = templatesWithFields.length * studentData.length;
 
   return (
     <div className="w-full">
@@ -135,9 +189,15 @@ export const GenerateSection = ({
           <h3 className="font-display text-2xl font-bold mb-2">Generate Certificates</h3>
           <p className="text-muted-foreground">
             {isReady
-              ? `Ready to generate ${studentData.length} certificates`
+              ? `Ready to generate ${totalCertificates} certificate${totalCertificates !== 1 ? 's' : ''}`
               : "Complete all steps above to generate certificates"}
           </p>
+          {templatesWithFields.length > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-2 text-sm text-accent-foreground">
+              <FileStack className="w-4 h-4" />
+              <span>{templatesWithFields.length} templates × {studentData.length} students</span>
+            </div>
+          )}
         </div>
 
         {isGenerating ? (
@@ -177,16 +237,16 @@ export const GenerateSection = ({
             <p className="font-medium mb-2">Before generating, make sure you have:</p>
             <ul className="space-y-1">
               <li className="flex items-center gap-2">
-                <span className={templateUrl ? "text-primary" : ""}>
-                  {templateUrl ? "✓" : "○"}
+                <span className={templates.length > 0 ? "text-primary" : ""}>
+                  {templates.length > 0 ? "✓" : "○"}
                 </span>
-                Uploaded a certificate template
+                Uploaded at least one certificate template
               </li>
               <li className="flex items-center gap-2">
-                <span className={textFields.length > 0 ? "text-primary" : ""}>
-                  {textFields.length > 0 ? "✓" : "○"}
+                <span className={templatesWithFields.length > 0 ? "text-primary" : ""}>
+                  {templatesWithFields.length > 0 ? "✓" : "○"}
                 </span>
-                Added at least one text field
+                Added at least one text field to a template
               </li>
               <li className="flex items-center gap-2">
                 <span className={studentData.length > 0 ? "text-primary" : ""}>
