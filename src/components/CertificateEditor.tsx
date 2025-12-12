@@ -271,7 +271,8 @@ export const CertificateEditor = ({
       shadow: false,
     };
 
-    const updatedFields = [...textFields, newField];
+    const updatedFields = [...textFieldsRef.current, newField];
+    console.log('Adding new field:', newField.fieldName, 'Total fields now:', updatedFields.length);
     onTextFieldsChange(updatedFields);
     addTextToCanvas(newField);
     setSelectedField("");
@@ -403,10 +404,10 @@ export const CertificateEditor = ({
       canvas.renderAll();
       
       if (type === 'text') {
-        const updatedFields = textFields.filter((f) => f.id !== id);
+        const updatedFields = textFieldsRef.current.filter((f) => f.id !== id);
         onTextFieldsChange(updatedFields);
       } else if (type === 'image') {
-        const updated = imageElements.filter((e) => e.id !== id);
+        const updated = imageElementsRef.current.filter((e) => e.id !== id);
         onImageElementsChange(updated);
       }
       setSelectedElementId(null);
@@ -423,7 +424,7 @@ export const CertificateEditor = ({
       const { id, type } = activeObject.data;
       
       if (type === 'image') {
-        const original = imageElements.find((e) => e.id === id);
+        const original = imageElementsRef.current.find((e) => e.id === id);
         if (original) {
           const newElement: ImageElement = {
             ...original,
@@ -431,12 +432,12 @@ export const CertificateEditor = ({
             left: original.left + 20,
             top: original.top + 20,
           };
-          const updated = [...imageElements, newElement];
+          const updated = [...imageElementsRef.current, newElement];
           onImageElementsChange(updated);
           addImageToCanvas(newElement);
         }
       } else if (type === 'text') {
-        const original = textFields.find((f) => f.id === id);
+        const original = textFieldsRef.current.find((f) => f.id === id);
         if (original) {
           const newField: TextField = {
             ...original,
@@ -444,7 +445,7 @@ export const CertificateEditor = ({
             left: original.left + 20,
             top: original.top + 20,
           };
-          const updated = [...textFields, newField];
+          const updated = [...textFieldsRef.current, newField];
           onTextFieldsChange(updated);
           addTextToCanvas(newField);
         }
@@ -514,7 +515,7 @@ export const CertificateEditor = ({
       canvas.renderAll();
     }
 
-    const updated = imageElements.map((e) =>
+    const updated = imageElementsRef.current.map((e) =>
       e.id === elementId ? { ...e, scaleX: scale, scaleY: scale } : e
     );
     onImageElementsChange(updated);
@@ -532,7 +533,7 @@ export const CertificateEditor = ({
       canvas.renderAll();
     }
 
-    const updated = imageElements.map((e) =>
+    const updated = imageElementsRef.current.map((e) =>
       e.id === elementId ? { ...e, opacity } : e
     );
     onImageElementsChange(updated);
