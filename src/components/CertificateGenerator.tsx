@@ -48,14 +48,15 @@ export const CertificateGenerator = ({ onBack, onGenerate }: CertificateGenerato
   }, [activeTemplateId]);
 
   const handleTextFieldsChange = useCallback((fields: TextField[]) => {
-    if (!activeTemplateId) return;
-    setTemplates(prev => prev.map(t =>
-      t.id === activeTemplateId ? { ...t, textFields: fields } : t
-    ));
+    setTemplates(prev => {
+      const currentActiveId = prev.find(t => t.textFields !== fields)?.id || activeTemplateId;
+      return prev.map(t =>
+        t.id === activeTemplateId ? { ...t, textFields: fields } : t
+      );
+    });
   }, [activeTemplateId]);
 
   const handleImageElementsChange = useCallback((elements: ImageElement[]) => {
-    if (!activeTemplateId) return;
     setTemplates(prev => prev.map(t =>
       t.id === activeTemplateId ? { ...t, imageElements: elements } : t
     ));

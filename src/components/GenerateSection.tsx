@@ -45,6 +45,7 @@ export const GenerateSection = ({
     let completedOperations = 0;
 
     for (const template of templates) {
+      console.log('Processing template:', template.name, 'with', template.textFields.length, 'text fields');
       if (template.textFields.length === 0) continue;
 
       // Load template image
@@ -105,8 +106,10 @@ export const GenerateSection = ({
         }
 
         // Draw text fields
+        console.log('Drawing text fields:', template.textFields);
         template.textFields.forEach((field) => {
-          const value = student[field.fieldName] || "";
+          const value = student[field.fieldName] || field.fieldName;
+          console.log('Field:', field.fieldName, 'Value:', value, 'Position:', field.left, field.top);
           const scaledFontSize = Math.round(field.fontSize * scaleBack);
           const scaledLeft = field.left * scaleBack;
           const scaledTop = field.top * scaleBack;
