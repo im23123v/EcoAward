@@ -117,6 +117,17 @@ export const CertificateEditor = ({
     });
   }, [templateUrl, canvasReady]);
 
+  const textFieldsRef = useRef(textFields);
+  const imageElementsRef = useRef(imageElements);
+  
+  useEffect(() => {
+    textFieldsRef.current = textFields;
+  }, [textFields]);
+  
+  useEffect(() => {
+    imageElementsRef.current = imageElements;
+  }, [imageElements]);
+
   const addTextToCanvas = useCallback((field: TextField, isNew: boolean = true) => {
     if (!fabricCanvasRef.current) return;
 
@@ -155,14 +166,14 @@ export const CertificateEditor = ({
     (text as FabricObjectWithData).data = { id: field.id, type: 'text' };
 
     text.on("moving", () => {
-      const updatedFields = textFields.map((f) =>
+      const updatedFields = textFieldsRef.current.map((f) =>
         f.id === field.id ? { ...f, left: text.left || 0, top: text.top || 0 } : f
       );
       onTextFieldsChange(updatedFields);
     });
 
     text.on("modified", () => {
-      const updatedFields = textFields.map((f) =>
+      const updatedFields = textFieldsRef.current.map((f) =>
         f.id === field.id
           ? { ...f, left: text.left || 0, top: text.top || 0, fontSize: text.fontSize || 24 }
           : f
@@ -173,7 +184,7 @@ export const CertificateEditor = ({
     canvas.add(text);
     canvas.setActiveObject(text);
     canvas.renderAll();
-  }, [textFields, onTextFieldsChange]);
+  }, [onTextFieldsChange]);
 
   const addImageToCanvas = useCallback((element: ImageElement, isNew: boolean = true) => {
     if (!fabricCanvasRef.current) return;
@@ -193,14 +204,14 @@ export const CertificateEditor = ({
       (img as FabricObjectWithData).data = { id: element.id, type: 'image' };
 
       img.on("moving", () => {
-        const updated = imageElements.map((e) =>
+        const updated = imageElementsRef.current.map((e) =>
           e.id === element.id ? { ...e, left: img.left || 0, top: img.top || 0 } : e
         );
         onImageElementsChange(updated);
       });
 
       img.on("scaling", () => {
-        const updated = imageElements.map((e) =>
+        const updated = imageElementsRef.current.map((e) =>
           e.id === element.id
             ? { ...e, scaleX: img.scaleX || 1, scaleY: img.scaleY || 1 }
             : e
@@ -209,7 +220,7 @@ export const CertificateEditor = ({
       });
 
       img.on("rotating", () => {
-        const updated = imageElements.map((e) =>
+        const updated = imageElementsRef.current.map((e) =>
           e.id === element.id
             ? { ...e, rotation: img.angle || 0 }
             : e
@@ -218,7 +229,7 @@ export const CertificateEditor = ({
       });
 
       img.on("modified", () => {
-        const updated = imageElements.map((e) =>
+        const updated = imageElementsRef.current.map((e) =>
           e.id === element.id
             ? {
                 ...e,
@@ -237,7 +248,7 @@ export const CertificateEditor = ({
       if (isNew) canvas.setActiveObject(img);
       canvas.renderAll();
     });
-  }, [imageElements, onImageElementsChange]);
+  }, [onImageElementsChange]);
 
   const handleAddField = () => {
     if (!selectedField || !fabricCanvasRef.current) return;
@@ -347,7 +358,7 @@ export const CertificateEditor = ({
         }
       }
       if (updates.strokeColor !== undefined || updates.strokeWidth !== undefined) {
-        const field = textFields.find(f => f.id === fieldId);
+        const field = textFieldsRef.current.find(f => f.id === fieldId);
         textObj.set({
           stroke: updates.strokeColor ?? field?.strokeColor ?? "",
           strokeWidth: updates.strokeWidth ?? field?.strokeWidth ?? 0,
@@ -356,7 +367,7 @@ export const CertificateEditor = ({
       canvas.renderAll();
     }
 
-    const updatedFields = textFields.map((f) =>
+    const updatedFields = textFieldsRef.current.map((f) =>
       f.id === fieldId ? { ...f, ...updates } : f
     );
     onTextFieldsChange(updatedFields);
