@@ -159,9 +159,10 @@ export const GenerateSection = ({
           canvas.toBlob((b) => resolve(b!), "image/png");
         });
 
-        // Add to zip with student name or index
-        const fileName = student["Name"] || student["name"] || `certificate_${i + 1}`;
-        zip.file(`${folderName}${fileName.replace(/[^a-zA-Z0-9]/g, "_")}.png`, blob);
+        // Add to zip with student name and index to prevent duplicates
+        const studentName = student["Name"] || student["name"] || `certificate`;
+        const fileName = `${i + 1}_${studentName}`;
+        zip.file(`${folderName}${fileName.replace(/[^a-zA-Z0-9_]/g, "_")}.png`, blob);
 
         completedOperations++;
         setProgress(Math.round((completedOperations / totalOperations) * 100));
